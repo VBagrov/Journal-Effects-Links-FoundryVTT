@@ -18,22 +18,30 @@ export function getDragEventData(event) {
 }
 
 /**
- * Resolve a dropped document into a template object. An Active Effect that is
- * embedded in an Item is imported as the complete Item so its effects are not
- * extracted from their parent.
+ * Resolve a dropped Actor. Recipients are added by dropping an Actor document
+ * from the Actors sidebar or an Actor directory entry.
  */
-export async function resolveDroppedTemplateObject(event) {
+export async function resolveDroppedActor(event) {
   const data = getDragEventData(event);
   const uuid = data?.uuid;
   if (!uuid) return null;
+  if (data.type && data.type !== "Actor") return null;
+  try {
+    const document = await fromUuid(uuid);
+    return document?.documentName === "Actor" ? document : null;
+  } catch {
+    return null;
+  }
+}
 
+async function resolveTemplateFromUuid(uuid) {
   let document;
   try {
     document = await fromUuid(uuid);
   } catch {
     document = null;
   }
-  if (!document) return { unsupported: data?.type ?? "unknown" };
+  if (!document) return { unsupported: "unknown" };
 
   if (document.documentName === "ActiveEffect" && document.parent?.documentName === "Item") {
     return { object: buildTemplateObject(document.parent), convertedFromEffect: true };
@@ -42,6 +50,20 @@ export async function resolveDroppedTemplateObject(event) {
     return { object: buildTemplateObject(document), convertedFromEffect: false };
   }
   return { unsupported: document.documentName };
+}
+
+/**
+ * Resolve a dropped document into a template object. An Active Effect that is
+ * embedded in an Item is imported as the complete Item so its effects are not
+ * extracted from their parent.
+ */
+export async function resolveDroppedTemplateObject(event) {
+  const data = getDragEventData(event);
+  const uuid = data?.uuid;
+  if (!uuid) return null;
+  const result = await resolveTemplateFromUuid(uuid);
+  if (result?.unsupported === "unknown") return { unsupported: data?.type ?? "unknown" };
+  return result;
 }
 
 export function bindDropTarget(html, handler) {
@@ -61,16 +83,19 @@ export function bindDropTarget(html, handler) {
   return dragDrop;
 }
 
-export async function importWorldItem(uuid) {
+/**
+ * Import an Item or Active Effect from the world or a compendium by UUID.
+ */
+export async function importTemplateDocument(uuid) {
   try {
-    const document = await fromUuid(uuid);
-    if (!document || document.documentName !== "Item") {
+    const result = await resolveTemplateFromUuid(uuid);
+    if (!result || result.unsupported) {
       notifyWarn(game.i18n.format("JELI.Error.UnsupportedDocument", {
-        type: document?.documentName ?? "unknown"
+        type: result?.unsupported ?? "unknown"
       }));
       return null;
     }
-    return buildTemplateObject(document);
+    return result;
   } catch {
     notifyWarn(game.i18n.localize("JELI.Error.UnsupportedDocumentGeneric"));
     return null;

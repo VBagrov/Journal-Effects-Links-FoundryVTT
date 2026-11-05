@@ -84,7 +84,9 @@ export function isNpcActor(actor) {
 }
 
 export function isDefaultPlayerCharacter(actor) {
-  return Boolean(actor?.hasPlayerOwner) && actor?.type === "character";
+  // Worlds often grant players default ownership instead of per-actor OWNER,
+  // so hasPlayerOwner alone can hide every playable character.
+  return Boolean(actor) && (actor.type === "character" || Boolean(actor.hasPlayerOwner));
 }
 
 export function itemTypeLabel(type, documentType) {

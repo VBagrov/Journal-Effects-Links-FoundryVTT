@@ -32,6 +32,14 @@ import { assertGM, assertRegistryUsable } from "./permissions.js";
 import { allowDuplicateCopies } from "../settings.js";
 import { revokeAllRecipientObjects, revokeInstanceRecord } from "./revocation.js";
 
+function recordHasLiveInstances(record) {
+  return Object.values(record?.objects ?? {}).some(instance =>
+    instance
+    && instance.status !== INSTANCE_STATUS.REVOKED
+    && instance.status !== INSTANCE_STATUS.SKIPPED
+  );
+}
+
 export function validateSet(set, { requireObjects = true, requireRecipients = true } = {}) {
   if (!set?.id) throw new Error(game.i18n.localize("JELI.Error.SetInvalid"));
   if (!String(set.name ?? "").trim()) throw new Error(game.i18n.localize("JELI.Error.NameRequired"));
@@ -63,6 +71,51 @@ export class GrantManager {
       };
     }
     return this.sync(set, SYNC_MODE.ADD);
+  }
+
+  /**
+   * Revoke documents that belong to recipients or objects removed from an
+   * active set. Saving a set never grants newly added entries: those are
+   * created only by an explicit synchronization.
+   */
+  async prune(set) {
+    assertGM();
+    if (!set?.id) throw new Error(game.i18n.localize("JELI.Error.SetInvalid"));
+
+    return this.#lock.run(set.id, async () => {
+      const registry = await this.#manager.loadRegistry();
+      assertRegistryUsable(this.#manager.registryOk, this.#manager.registryMissing);
+      const entry = registry.sets?.[set.id];
+      const grant = getActiveGrant(registry, set.id);
+      const summary = createSummary();
+      if (!grant) return { noGrant: true, summary };
+
+      await this.#removeUndesiredRecipients(set, grant, registry, summary, { quiet: true });
+      await this.#removeUndesiredObjects(set, grant, summary, { quiet: true });
+
+      for (const record of Object.values(grant.recipients ?? {})) {
+        if (record.status !== RECIPIENT_STATUS.REVOKED
+          && record.status !== RECIPIENT_STATUS.MISSING_ACTOR) {
+          recomputeRecipientStatus(record);
+        }
+      }
+      recomputeGrantStatus(grant);
+      if (grant.status === GRANT_STATUS.REVOKED && entry) entry.activeGrantId = null;
+
+      if (summary.removed || summary.removedRecipients || summary.failed) {
+        addHistory(registry, {
+          setId: set.id,
+          setName: set.name ?? "",
+          grantId: grant.grantId,
+          operation: "prune",
+          result: summary.failed > 0 ? "partial" : "success",
+          message: "",
+          summary
+        });
+        await this.#manager.saveRegistry(registry);
+      }
+      return { noGrant: false, summary, grantId: grant.grantId };
+    });
   }
 
   async sync(set, mode = SYNC_MODE.APPLY) {
@@ -125,27 +178,30 @@ export class GrantManager {
     });
   }
 
-  async #removeUndesiredRecipients(set, grant, registry, summary) {
+  async #removeUndesiredRecipients(set, grant, registry, summary, { quiet = false } = {}) {
     for (const [actorUuid, record] of Object.entries(grant.recipients ?? {})) {
-      if (record.status === RECIPIENT_STATUS.REVOKED) continue;
+      if (record.status === RECIPIENT_STATUS.REVOKED && !recordHasLiveInstances(record)) continue;
       if (set.recipients.includes(actorUuid)) continue;
 
       const actor = await resolveActor(actorUuid);
       if (!actor) {
-        record.status = RECIPIENT_STATUS.MISSING_ACTOR;
+        record.status = RECIPIENT_STATUS.REVOKED;
         record.error = "missing-actor";
         record.updatedAt = Date.now();
-        summary.failed += 1;
-        summary.errors.push(game.i18n.format("JELI.Summary.ActorMissing", {
-          actor: record.actorName || actorUuid
-        }));
+        summary.skipped += 1;
+        if (!quiet) {
+          summary.failed += 1;
+          summary.errors.push(game.i18n.format("JELI.Summary.ActorMissing", {
+            actor: record.actorName || actorUuid
+          }));
+        }
         addHistory(registry, {
           setId: set.id,
           setName: set.name,
           grantId: grant.grantId,
           actorUuid,
           operation: "revoke-recipient",
-          result: "failed",
+          result: quiet ? "success" : "failed",
           message: "missing-actor"
         });
         continue;
@@ -167,11 +223,10 @@ export class GrantManager {
     }
   }
 
-  async #removeUndesiredObjects(set, grant, summary) {
+  async #removeUndesiredObjects(set, grant, summary, { quiet = false } = {}) {
     const desiredObjectIds = new Set(set.objects.map(object => object.id));
     for (const [actorUuid, record] of Object.entries(grant.recipients ?? {})) {
-      if (record.status === RECIPIENT_STATUS.REVOKED
-        || record.status === RECIPIENT_STATUS.MISSING_ACTOR) continue;
+      if (record.status === RECIPIENT_STATUS.REVOKED && !recordHasLiveInstances(record)) continue;
 
       const actor = await resolveActor(actorUuid);
       for (const objectId of Object.keys(record.objects ?? {})) {
@@ -187,12 +242,15 @@ export class GrantManager {
           instance.status = INSTANCE_STATUS.MISSING;
           instance.error = "missing-actor";
           instance.updatedAt = Date.now();
-          summary.failed += 1;
+          if (!quiet) summary.failed += 1;
           continue;
         }
         await revokeInstanceRecord(actor, record, objectId, grant, set.id, summary);
       }
-      recomputeRecipientStatus(record);
+      if (record.status !== RECIPIENT_STATUS.REVOKED
+        && record.status !== RECIPIENT_STATUS.MISSING_ACTOR) {
+        recomputeRecipientStatus(record);
+      }
     }
   }
 

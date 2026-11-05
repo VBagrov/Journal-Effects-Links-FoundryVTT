@@ -22,7 +22,7 @@ function journalEntryClass() {
 export function createSetDraft() {
   const now = Date.now();
   const recipients = (game.actors?.contents ?? [])
-    .filter(actor => actor.type === "character" && actor.hasPlayerOwner)
+    .filter(actor => actor.type === "character" || actor.hasPlayerOwner)
     .map(actor => actor.uuid);
   return {
     id: createSetId(),

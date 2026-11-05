@@ -109,6 +109,7 @@
       "grant": "Grant",
       "revoke-recipient": "Revoke recipient",
       "revoke-set": "Revoke set",
+      "prune": "Cleanup removed entries",
       "repair": "Registry repair",
       "unknown": "Unknown"
     },
@@ -140,11 +141,15 @@
       "Objects": "Objects",
       "Recipients": "Recipients",
       "FromWorld": "From world items",
-      "WorldItems": "World Items",
+      "WorldItems": "Items and effects",
       "DropHint": "Drop Items or Active Effects here",
       "DropReplaceHint": "Drop a document onto an existing row to replace it. Active Effects inside Items are imported as the whole Item.",
+      "DropActorHint": "Drop an Actor here to add it as a recipient.",
+      "SourcePack": "Source",
       "NoObjects": "No objects added yet.",
       "NoWorldItems": "No world items available.",
+      "NoBrowseItems": "No items found in this source.",
+      "PackLoadFailed": "Could not read the compendium “{pack}”.",
       "MoveUp": "Move up",
       "MoveDown": "Move down",
       "RemoveObject": "Remove object",
@@ -157,12 +162,15 @@
       "MissingActor": "missing",
       "ObjectReplaced": "Object replaced with the dropped document.",
       "EffectImportedAsItem": "The dropped effect belongs to an Item, so the whole Item was imported.",
+      "ActorAdded": "Actor “{name}” added as a recipient.",
       "FooterSummary": "{objects} objects · {recipients} recipients selected",
       "Save": "Save",
       "SaveDraft": "Save draft",
       "ApplyChanges": "Apply Changes…",
       "Saved": "Effect Set saved.",
-      "ActiveGrantWarning": "This set is active. Saving will offer a synchronization preview.",
+      "SavedPendingSync": "Effect Set saved. Removed objects and recipients were revoked; new ones are granted only after synchronization.",
+      "CleanupDone": "Removed from recipients: {removed} document(s); recipients revoked: {recipients}.",
+      "ActiveGrantWarning": "This set is active. Removed objects and recipients are revoked on save; additions wait for synchronization.",
       "DiscardTitle": "Discard changes?",
       "DiscardConfirm": "Unsaved changes will be lost.",
       "Discard": "Discard",
@@ -203,6 +211,7 @@
       "Updated": "Modified",
       "Activated": "Activated",
       "FooterHint": "All destructive actions require confirmation.",
+      "MissingNotice": "{count} object(s) are missing on recipients. Synchronization grants only the missing ones.",
       "RevokeSet": "Revoke This Set"
     },
     "Preview": {
@@ -293,7 +302,7 @@
       "Line": "Created: {created} · Removed: {removed} · Updated: {updated} · Failed: {failed}",
       "ActivationDone": "Activation complete. Created: {created}, skipped: {skipped}, failed: {failed}, conflicts: {conflicts}.",
       "SyncDone": "Synchronization complete. Created: {created}, removed: {removed}, updated: {updated}, skipped: {skipped}, failed: {failed}, conflicts: {conflicts}.",
-      "Revoked": "Revocation complete. Removed: {removed}, failed: {failed}.",
+      "Revoked": "Revocation complete. Removed: {removed}, already missing: {skipped}, conflicts: {conflicts}, failed: {failed}.",
       "MoreErrors": "…and {count} more error(s). See the history tab for details.",
       "ActorMissing": "Recipient Actor “{actor}” is missing; its grant was not changed.",
       "Conflict": "“{object}” on {actor} was not created or changed because an existing document failed ownership verification.",
@@ -309,7 +318,7 @@
       },
       "DefaultSyncMode": {
         "Name": "Default synchronization mode",
-        "Hint": "Which mode the synchronization preview selects by default after editing an active set."
+        "Hint": "Which mode the synchronization preview selects by default."
       },
       "CreateDuplicateCopies": {
         "Name": "Create duplicate copies",

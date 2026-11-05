@@ -24,31 +24,48 @@ mandatory third-party dependencies.
 1. Click **Effect Sets** → **New Effect Set**.
 2. Name it and optionally add a description and icon.
 3. Drag Items or Active Effects into the object panel, or use
-   **From world items**. Dropping a document onto an existing row replaces that
-   row. An Active Effect that belongs to an Item is imported as the whole Item.
-4. Select recipients. Player-owned character Actors are selected by default;
-   NPCs are hidden until **Show NPCs** is enabled.
+   **From world items**. The browser can list the world or any Item/Active Effect
+   compendium, so objects can be taken from compendiums without dragging.
+   Dropping a document onto an existing row replaces that row. An Active Effect
+   that belongs to an Item is imported as the whole Item.
+4. Select recipients. Playable characters are selected by default; NPCs are
+   hidden until **Show NPCs** is enabled. An Actor can also be dropped into the
+   editor to add it as a recipient immediately.
 5. Click **Save** (or **Save draft** for an empty set).
+
+### Editing an active set
+
+Saving an active set applies removals only: documents of recipients or objects
+that were removed from the set are revoked immediately, because they no longer
+belong to it. New objects and recipients are **not** granted by saving — they
+are created by an explicit synchronization, so accidental additions never
+distribute anything.
 
 ### Distribute
 
 - **Activate** opens the synchronization preview; documents are created only
   after you confirm. Activation is idempotent: if an active grant already
   exists it does nothing. Use synchronization to apply later changes.
-- **Synchronize** opens a preview of the differential plan. Choose a mode:
+- **Synchronize** opens a preview of the differential plan. Only documents that
+  are missing on a recipient are created; verified copies are left alone.
+  Choose a mode:
   - **Add Missing Only** — create missing documents, never remove or overwrite.
   - **Apply Configuration** (default) — add/remove objects and recipients, but
     preserve player modifications to existing copies.
   - **Full Template Synchronization** — additionally overwrite verified managed
     copies with template data.
+  Manually deleted documents on a recipient are detected as missing and are
+  re-created by the next synchronization; the management window lists how many
+  objects each recipient is missing.
 - By default the module does not create duplicate copies: if the recipient
   already has an item or effect with the same name and type, it is skipped and
   listed in the preview. Enable **Create duplicate copies** in the module
   settings to grant copies anyway. Pre-existing documents are never adopted,
   modified, or deleted.
 - **Revoke** removes only documents positively verified as created by this module.
-  The grant table also has a per-recipient button that revokes every set from
-  that Actor at once.
+  Documents that were already deleted manually are treated as already revoked,
+  so revoking a set does not report errors for them. The grant table also has a
+  per-recipient button that revokes every set from that Actor at once.
 - **Copy journal link** produces `@EffectLink[set_...]{Set Name}` for use in any
   journal page. Links reference the immutable set ID, so renaming is safe.
 - In the journal page editor toolbar, the wand button opens a set picker and

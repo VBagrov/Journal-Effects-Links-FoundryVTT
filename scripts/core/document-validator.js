@@ -108,31 +108,52 @@ export function evaluateRecipient(actor, record, { setId, grantId, objects } = {
     const problems = Object.values(record.objects ?? {})
       .filter(instance => instance?.status !== INSTANCE_STATUS.REVOKED
         && instance?.status !== INSTANCE_STATUS.SKIPPED).length;
-    return { status: RECIPIENT_STATUS.MISSING_ACTOR, granted: 0, problems, total };
+    return {
+      status: RECIPIENT_STATUS.MISSING_ACTOR,
+      granted: 0,
+      problems,
+      missing: 0,
+      skipped: 0,
+      total
+    };
   }
 
   const entries = templateObjects
-    ? templateObjects
-      .map(object => [object.id, record.objects?.[object.id]])
-      .filter(([, instance]) => instance)
-    : Object.entries(record.objects ?? {});
+    ? templateObjects.map(object => [object.id, record.objects?.[object.id], object])
+    : Object.entries(record.objects ?? {}).map(([objectId, instance]) => [objectId, instance, null]);
 
   let granted = 0;
   let problems = 0;
+  let missing = 0;
+  let skipped = 0;
   for (const [objectId, instance] of entries) {
-    if (instance.status === INSTANCE_STATUS.REVOKED) continue;
-    if (instance.status === INSTANCE_STATUS.SKIPPED) continue;
+    if (!instance) {
+      // The object exists in the set but was never granted to this recipient.
+      missing += 1;
+      continue;
+    }
+    if (instance.status === INSTANCE_STATUS.REVOKED) {
+      missing += 1;
+      continue;
+    }
+    if (instance.status === INSTANCE_STATUS.SKIPPED) {
+      skipped += 1;
+      continue;
+    }
     const check = verifyInstance(actor, instance, { setId, grantId, templateObjectId: objectId });
     if (check.ok) granted += 1;
+    else if (check.reason === "no-document") missing += 1;
     else problems += 1;
   }
 
   let status = record.status;
-  if (granted + problems > 0) {
+  if (missing > 0) {
+    status = granted + skipped > 0 ? RECIPIENT_STATUS.PARTIAL : RECIPIENT_STATUS.FAILED;
+  } else if (granted + problems > 0) {
     if (problems === 0) status = RECIPIENT_STATUS.ACTIVE;
     else status = granted > 0 ? RECIPIENT_STATUS.PARTIAL : RECIPIENT_STATUS.FAILED;
   }
-  return { status, granted, problems, total };
+  return { status, granted, problems, missing, skipped, total };
 }
 
 export function collectManagedDocuments(actor) {

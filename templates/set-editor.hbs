@@ -47,6 +47,7 @@
         <i class="fa-solid fa-hand-pointer"></i>
         <p>{{localize 'JELI.Editor.DropHint'}}</p>
         <p class="notes">{{localize 'JELI.Editor.DropReplaceHint'}}</p>
+        <p class="notes">{{localize 'JELI.Editor.DropActorHint'}}</p>
       </div>
 
       {{#if objects.length}}
@@ -122,6 +123,11 @@
         <i class="fa-solid fa-magnifying-glass"></i>
         <input type="search" data-jeli-browse-search placeholder="{{localize 'JELI.Editor.SearchItems'}}" autocomplete="off">
       </div>
+      <select class="jeli-select" data-jeli-browse-pack title="{{localize 'JELI.Editor.SourcePack'}}">
+        {{#each browsePacks}}
+        <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+        {{/each}}
+      </select>
     </div>
     <div class="jeli-browse-list">
       {{#each browseItems}}
@@ -129,11 +135,12 @@
         <img src="{{img}}" alt="">
         <span class="jeli-browse-name">{{name}}</span>
         <span class="jeli-actor-type">{{typeLabel}}</span>
+        {{#if packLabel}}<span class="jeli-actor-owners notes">{{packLabel}}</span>{{/if}}
         <button type="button" class="jeli-button small" data-action="browseAdd" data-uuid="{{uuid}}">{{localize 'JELI.Editor.Add'}}</button>
       </div>
       {{else}}
       <div class="jeli-empty small">
-        <p>{{localize 'JELI.Editor.NoWorldItems'}}</p>
+        <p>{{localize 'JELI.Editor.NoBrowseItems'}}</p>
       </div>
       {{/each}}
     </div>

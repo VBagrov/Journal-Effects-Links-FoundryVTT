@@ -1,12 +1,12 @@
 import { DEFAULT_SET_ICON } from "../constants.js";
 import { evaluateRecipient } from "../core/document-validator.js";
 import { getActiveGrant } from "../core/grant-registry.js";
-import { setManager } from "../core/services.js";
+import { grantManager, setManager } from "../core/services.js";
 import { createSetDraft } from "../core/set-manager.js";
-import { defaultSyncMode } from "../settings.js";
 import {
   bindDropTarget,
-  importWorldItem,
+  importTemplateDocument,
+  resolveDroppedActor,
   resolveDroppedTemplateObject
 } from "../integrations/drag-drop.js";
 import {
@@ -21,7 +21,6 @@ import {
 } from "../utils/display.js";
 import { notifyError, notifyInfo, notifyWarn } from "../utils/logger.js";
 import { confirmAction, emitSetChanged, showLinkDialog } from "./dialogs.js";
-import { SyncPreviewApp } from "./synchronization-preview.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -64,6 +63,8 @@ export class SetEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     this.setId = setId;
     this.set = null;
     this.browsing = false;
+    this.browsePack = "world";
+    this.browseCache = new Map();
     this.showNpcs = false;
     this.dirty = false;
     this.dropTarget = null;
@@ -90,6 +91,8 @@ export class SetEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const grant = getActiveGrant(registry, this.set.id);
     const actorOptions = this.#buildActorOptions(grant);
     if (actorOptions.some(option => option.selected && option.npc)) this.showNpcs = true;
+    const browsePacks = this.#buildBrowsePacks();
+    const browseItems = await this.#buildBrowseItems();
 
     return {
       ...context,
@@ -98,12 +101,14 @@ export class SetEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       isEdit: Boolean(this.setId),
       updatedLabel: formatDateTime(this.set.updatedAt),
       hasActiveGrant: Boolean(grant),
-      primaryLabelKey: grant ? "JELI.Editor.ApplyChanges" : "JELI.Editor.Save",
+      primaryLabelKey: "JELI.Editor.Save",
       objects: this.#buildObjectRows(),
       actorOptions,
       selectedCount: this.set.recipients.length,
       browsing: this.browsing,
-      browseItems: this.#buildBrowseItems(),
+      browsePacks,
+      browsePack: this.browsePack,
+      browseItems,
       showNpcs: this.showNpcs
     };
   }
@@ -197,15 +202,77 @@ export class SetEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return options;
   }
 
-  #buildBrowseItems() {
+  #browseRow(document, uuid, documentType, packLabel = "") {
+    return {
+      uuid,
+      name: document.name,
+      img: document.img,
+      typeLabel: itemTypeLabel(document.type, documentType),
+      packLabel,
+      search: String(document.name ?? "").toLowerCase()
+    };
+  }
+
+  #buildBrowsePacks() {
+    const options = [{
+      value: "world",
+      label: game.i18n.localize("JELI.Editor.WorldItems"),
+      selected: this.browsePack === "world"
+    }];
+    for (const pack of game.packs ?? []) {
+      const type = pack.metadata?.type ?? pack.documentName;
+      if (type !== "Item" && type !== "ActiveEffect") continue;
+      options.push({
+        value: pack.collection,
+        label: pack.metadata?.label ?? pack.collection,
+        selected: this.browsePack === pack.collection
+      });
+    }
+    if (!options.some(option => option.selected)) {
+      this.browsePack = "world";
+      options[0].selected = true;
+    }
+    return options;
+  }
+
+  async #buildBrowseItems() {
     if (!this.browsing) return [];
-    return (game.items?.contents ?? []).map(item => ({
-      uuid: item.uuid,
-      name: item.name,
-      img: item.img,
-      typeLabel: itemTypeLabel(item.type, "Item"),
-      search: item.name.toLowerCase()
-    }));
+    if (this.browsePack === "world") {
+      const items = (game.items?.contents ?? [])
+        .map(item => this.#browseRow(item, item.uuid, "Item"));
+      const effects = (game.effects?.contents ?? [])
+        .map(effect => this.#browseRow(effect, effect.uuid, "ActiveEffect"));
+      return [...items, ...effects].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const pack = game.packs?.get?.(this.browsePack);
+    if (!pack) return [];
+    if (this.browseCache.has(pack.collection)) return this.browseCache.get(pack.collection);
+
+    try {
+      const index = await pack.getIndex({ fields: ["type", "img", "name"] });
+      const entries = index?.values ? [...index.values()] : Object.values(index ?? {});
+      const documentType = (pack.metadata?.type ?? pack.documentName) === "ActiveEffect"
+        ? "ActiveEffect"
+        : "Item";
+      const label = pack.metadata?.label ?? pack.collection;
+      const rows = entries
+        .filter(entry => entry?.name)
+        .map(entry => this.#browseRow(
+          entry,
+          `Compendium.${pack.collection}.${entry._id}`,
+          documentType,
+          label
+        ))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      this.browseCache.set(pack.collection, rows);
+      return rows;
+    } catch (err) {
+      notifyWarn(game.i18n.format("JELI.Editor.PackLoadFailed", {
+        pack: pack.metadata?.label ?? pack.collection
+      }));
+      return [];
+    }
   }
 
   _onRender(context, options) {
@@ -231,6 +298,10 @@ export class SetEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     root.querySelector("[data-jeli-actor-search]")?.addEventListener("input", () => this.#filterActors());
     root.querySelector("[data-jeli-browse-search]")?.addEventListener("input", () => this.#filterBrowse());
+    root.querySelector("[data-jeli-browse-pack]")?.addEventListener("change", event => {
+      this.browsePack = event.target.value;
+      this.render({ force: true });
+    });
 
     const npcToggle = root.querySelector("[data-jeli-show-npcs]");
     if (npcToggle) {
@@ -281,6 +352,19 @@ export class SetEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 
   async #onDrop(event) {
+    const actor = await resolveDroppedActor(event);
+    if (actor) {
+      this.#applyFormValues();
+      if (!this.set.recipients.includes(actor.uuid)) {
+        this.set.recipients.push(actor.uuid);
+        if (isNpcActor(actor)) this.showNpcs = true;
+        this.dirty = true;
+        notifyInfo(game.i18n.format("JELI.Editor.ActorAdded", { name: actor.name }));
+        await this.render({ force: true });
+      }
+      return;
+    }
+
     const result = await resolveDroppedTemplateObject(event);
     if (!result) return;
     if (result.unsupported) {
@@ -330,14 +414,30 @@ export class SetEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
       const registry = await setManager.loadRegistry();
       const grant = getActiveGrant(registry, this.set.id);
       emitSetChanged(this.set.id);
-      notifyInfo(game.i18n.localize("JELI.Editor.Saved"));
       const snapshot = foundry.utils.deepClone(this.set);
       this.close();
-      if (grant) {
-        void SyncPreviewApp.open({ set: snapshot, mode: defaultSyncMode() });
-      }
+      notifyInfo(game.i18n.localize(
+        grant ? "JELI.Editor.SavedPendingSync" : "JELI.Editor.Saved"
+      ));
+      if (grant) await this.#pruneRemoved(snapshot);
     } catch (err) {
       notifyError(err.message);
+    }
+  }
+
+  async #pruneRemoved(set) {
+    try {
+      const { summary } = await grantManager.prune(set);
+      if (!summary) return;
+      const removed = summary.removed ?? 0;
+      const recipients = summary.removedRecipients ?? 0;
+      if (removed || recipients) {
+        notifyInfo(game.i18n.format("JELI.Editor.CleanupDone", { removed, recipients }));
+        emitSetChanged(set.id);
+      }
+      for (const message of (summary.errors ?? []).slice(0, 3)) notifyError(message);
+    } catch (err) {
+      notifyWarn(err.message);
     }
   }
 
@@ -370,9 +470,12 @@ export class SetEditorApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const uuid = target.dataset.uuid;
     if (!uuid) return;
     this.#applyFormValues();
-    const object = await importWorldItem(uuid);
-    if (!object) return;
-    this.set.objects.push(object);
+    const result = await importTemplateDocument(uuid);
+    if (!result) return;
+    this.set.objects.push(result.object);
+    if (result.convertedFromEffect) {
+      notifyInfo(game.i18n.localize("JELI.Editor.EffectImportedAsItem"));
+    }
     this.dirty = true;
     await this.render({ force: true });
   }

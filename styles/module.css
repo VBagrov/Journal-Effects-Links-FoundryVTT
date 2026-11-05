@@ -1090,16 +1090,58 @@ body.theme-light .jeli-dialog,
 }
 
 /* ---------- Journal link ---------- */
-a.jeli-effect-link {
+a.jeli-effect-link,
+.journal-entry-content a.jeli-effect-link,
+.editor-content a.jeli-effect-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0 0.55em;
+  border: 1px solid var(--color-border-light-tertiary, #7a7971);
+  border-radius: 4px;
+  background: rgba(122, 121, 113, 0.12);
   color: var(--color-text-hyperlink, #4a52a7);
-  text-decoration: underline;
-  text-decoration-style: dotted;
+  font-weight: 600;
+  line-height: 1.7;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
+  vertical-align: baseline;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+a.jeli-effect-link::before {
+  content: "⚡";
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+a.jeli-effect-link:hover {
+  border-color: var(--color-border-highlight, #ff6400);
+  background: rgba(238, 155, 58, 0.18);
+  text-decoration: none;
+}
+
+a.jeli-effect-link:focus-visible {
+  outline: 2px solid var(--color-border-highlight, #ff6400);
+  outline-offset: 1px;
+}
+
+body.theme-dark a.jeli-effect-link,
+.theme-dark a.jeli-effect-link {
+  border-color: var(--color-cool-3, #584a75);
+  background: rgba(88, 74, 117, 0.28);
+  color: var(--color-light-2, #efe6d8);
 }
 
 a.jeli-effect-link.missing {
+  border-color: var(--jeli-danger, #c53131);
   color: var(--jeli-danger, #c53131);
-  text-decoration-style: wavy;
+  text-decoration: none;
+}
+
+a.jeli-effect-link.missing::before {
+  content: "⚠";
 }
 
 /* ---------- Journal directory fallback button ---------- */

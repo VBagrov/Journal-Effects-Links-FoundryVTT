@@ -24,7 +24,7 @@ import {
   recipientStatusLabel,
   setStatusLabel
 } from "../utils/display.js";
-import { notifyError, notifyWarn } from "../utils/logger.js";
+import { notifyError, notifyInfo, notifyWarn } from "../utils/logger.js";
 import { defaultSyncMode } from "../settings.js";
 import { confirmAction, emitSetChanged, notifySummary, showLinkDialog } from "./dialogs.js";
 import { SetEditorApp } from "./set-editor.js";
@@ -134,6 +134,7 @@ export class SetManagementApp extends HandlebarsApplicationMixin(ApplicationV2) 
       status = SET_STATUS.PARTIAL;
     }
     const lastSync = latest?.lastSync ?? null;
+    const missingCount = recipients.reduce((sum, row) => sum + (row.missingCount ?? 0), 0);
 
     return {
       ...context,
@@ -148,6 +149,7 @@ export class SetManagementApp extends HandlebarsApplicationMixin(ApplicationV2) 
       recipientCount: recipients.length,
       objectCount: objects.length,
       activeRecipients: recipients.filter(row => row.canRevoke).length,
+      missingCount,
       lastSyncAt: latest?.lastSyncAt ?? null,
       lastSyncLabel: formatDateTime(latest?.lastSyncAt),
       lastSyncSummary: syncSummaryText(lastSync),
@@ -173,6 +175,7 @@ export class SetManagementApp extends HandlebarsApplicationMixin(ApplicationV2) 
           granted: 0,
           total: set.objects.length,
           problemCount: 0,
+          missingCount: set.objects.length,
           canRevoke: false,
           missingActor: !actor
         };
@@ -180,8 +183,10 @@ export class SetManagementApp extends HandlebarsApplicationMixin(ApplicationV2) 
     }
 
     const rows = [];
+    const seen = new Set();
     for (const [uuid, record] of Object.entries(grant.recipients ?? {})) {
       if (record.status === RECIPIENT_STATUS.REVOKED) continue;
+      seen.add(uuid);
       const actor = findActorSync(uuid);
       const state = evaluateRecipient(actor, record, {
         setId: set.id,
@@ -196,18 +201,41 @@ export class SetManagementApp extends HandlebarsApplicationMixin(ApplicationV2) 
         statusLabel: recipientStatusLabel(state.status),
         granted: state.granted,
         total: state.total,
-        problemCount: state.problems,
+        problemCount: state.problems + state.missing,
+        missingCount: state.missing,
         canRevoke: Boolean(actor),
         missingActor: !actor
       });
     }
+
+    // Recipients added to the set but not granted yet.
+    for (const uuid of set.recipients ?? []) {
+      if (seen.has(uuid)) continue;
+      const actor = findActorSync(uuid);
+      rows.push({
+        uuid,
+        name: actor?.name ?? uuid,
+        img: actor?.img ?? DEFAULT_SET_ICON,
+        status: "draft",
+        statusLabel: game.i18n.localize("JELI.RecipientStatus.NotActive"),
+        granted: 0,
+        total: set.objects.length,
+        problemCount: 0,
+        missingCount: set.objects.length,
+        canRevoke: false,
+        missingActor: !actor
+      });
+    }
+
     rows.sort((a, b) => a.name.localeCompare(b.name));
     return rows;
   }
 
   #objectRows(set, grant) {
+    const desired = new Set(set.recipients ?? []);
     const recipients = grant
-      ? Object.entries(grant.recipients ?? {}).filter(([, record]) => record.status !== RECIPIENT_STATUS.REVOKED)
+      ? Object.entries(grant.recipients ?? {}).filter(([uuid, record]) =>
+        record.status !== RECIPIENT_STATUS.REVOKED && desired.has(uuid))
       : [];
     return set.objects.map(object => {
       let granted = 0;
@@ -236,7 +264,7 @@ export class SetManagementApp extends HandlebarsApplicationMixin(ApplicationV2) 
         img: objectIcon(object),
         typeLabel: itemTypeLabel(object.type, object.documentType),
         granted,
-        total: recipients.length,
+        total: set.recipients?.length ?? recipients.length,
         problems
       };
     });
@@ -270,7 +298,7 @@ export class SetManagementApp extends HandlebarsApplicationMixin(ApplicationV2) 
     this.busy = true;
     try {
       const result = await revocationManager.revokeSet(this.set);
-      if (result.noGrant) notifyWarn(game.i18n.localize("JELI.Revoke.NoActiveGrant"));
+      if (result.noGrant) notifyInfo(game.i18n.localize("JELI.Revoke.NoActiveGrant"));
       else notifySummary(result.summary, { revoked: true });
       emitSetChanged(this.setId);
       this.render({ force: true });
@@ -298,7 +326,7 @@ export class SetManagementApp extends HandlebarsApplicationMixin(ApplicationV2) 
     this.busy = true;
     try {
       const result = await revocationManager.revokeRecipient(this.set, actorUuid);
-      if (result.noRecipient) notifyWarn(game.i18n.localize("JELI.Revoke.NoRecipient"));
+      if (result.noRecipient) notifyInfo(game.i18n.localize("JELI.Revoke.NoRecipient"));
       else notifySummary(result.summary, { revoked: true });
       emitSetChanged(this.setId);
       this.render({ force: true });

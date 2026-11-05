@@ -14,9 +14,12 @@ import {
 import { OperationLock } from "./operation-lock.js";
 import { assertGM, assertRegistryUsable } from "./permissions.js";
 
-function reasonText(reason) {
-  const key = `JELI.Reason.${reason}`;
-  return game.i18n.has(key) ? game.i18n.localize(key) : String(reason ?? "");
+function recordHasLiveInstances(record) {
+  return Object.values(record?.objects ?? {}).some(instance =>
+    instance
+    && instance.status !== INSTANCE_STATUS.REVOKED
+    && instance.status !== INSTANCE_STATUS.SKIPPED
+  );
 }
 
 export async function revokeInstanceRecord(actor, recipientRecord, objectId, grant, setId, summary) {
@@ -34,23 +37,25 @@ export async function revokeInstanceRecord(actor, recipientRecord, objectId, gra
   });
 
   if (!check.ok) {
+    if (check.reason === "no-document") {
+      // The document was already removed manually; there is nothing to delete.
+      record.status = INSTANCE_STATUS.REVOKED;
+      record.error = "missing-document";
+      record.revokedAt = Date.now();
+      record.updatedAt = Date.now();
+      summary.skipped += 1;
+      return { result: "already-missing" };
+    }
     if (isSafeConflict(check.reason)) {
       record.status = INSTANCE_STATUS.CONFLICT;
       record.error = check.reason;
-    } else if (check.reason === "no-document") {
-      record.status = INSTANCE_STATUS.MISSING;
-      record.error = "missing-document";
+      summary.conflicts += 1;
     } else {
       record.status = INSTANCE_STATUS.FAILED;
       record.error = check.reason;
+      summary.failed += 1;
     }
     record.updatedAt = Date.now();
-    summary.failed += 1;
-    summary.errors.push(game.i18n.format("JELI.Summary.RevokeSkipped", {
-      object: record.name || objectId,
-      actor: actor?.name ?? recipientRecord.actorName ?? "",
-      reason: reasonText(check.reason)
-    }));
     return { result: "skipped", reason: check.reason };
   }
 
@@ -126,7 +131,8 @@ function collectTemplateIds(entry, set) {
 function entryHasRecipient(entry, actorUuid) {
   return Object.values(entry?.generations ?? {}).some(grant => {
     const record = grant?.recipients?.[actorUuid];
-    return record && record.status !== RECIPIENT_STATUS.REVOKED;
+    return record
+      && (record.status !== RECIPIENT_STATUS.REVOKED || recordHasLiveInstances(record));
   });
 }
 
@@ -219,25 +225,22 @@ export class RevocationManager {
       }
       const grants = Object.values(entry.generations).filter(grant => {
         const record = grant?.recipients?.[actorUuid];
-        return record && record.status !== RECIPIENT_STATUS.REVOKED;
+        return record
+          && (record.status !== RECIPIENT_STATUS.REVOKED || recordHasLiveInstances(record));
       });
       if (!grants.length) return { noRecipient: true, summary };
 
       const actor = await resolveActor(actorUuid);
-      let missingReported = false;
       for (const grant of grants) {
         const record = grant.recipients[actorUuid];
         if (!actor) {
-          record.status = RECIPIENT_STATUS.MISSING_ACTOR;
+          // Nothing can be verified or deleted when the Actor is gone.
+          record.status = recordHasLiveInstances(record)
+            ? RECIPIENT_STATUS.MISSING_ACTOR
+            : RECIPIENT_STATUS.REVOKED;
           record.error = "missing-actor";
           record.updatedAt = Date.now();
-          if (!missingReported) {
-            missingReported = true;
-            summary.failed += 1;
-            summary.errors.push(game.i18n.format("JELI.Summary.ActorMissing", {
-              actor: record.actorName || actorUuid
-            }));
-          }
+          summary.skipped += 1;
         } else {
           await revokeAllRecipientObjects(actor, record, grant, set.id, summary);
           record.status = RECIPIENT_STATUS.REVOKED;
@@ -323,23 +326,23 @@ export class RevocationManager {
 
   async #revokeGrant(set, registry, entry, grant, summary) {
     for (const [actorUuid, record] of Object.entries(grant.recipients ?? {})) {
-      if (record.status === RECIPIENT_STATUS.REVOKED) continue;
+      // Records can be marked revoked while leftover documents still exist.
+      if (record.status === RECIPIENT_STATUS.REVOKED && !recordHasLiveInstances(record)) continue;
       const actor = await resolveActor(actorUuid);
       if (!actor) {
-        record.status = RECIPIENT_STATUS.MISSING_ACTOR;
+        record.status = recordHasLiveInstances(record)
+          ? RECIPIENT_STATUS.MISSING_ACTOR
+          : RECIPIENT_STATUS.REVOKED;
         record.error = "missing-actor";
         record.updatedAt = Date.now();
-        summary.failed += 1;
-        summary.errors.push(game.i18n.format("JELI.Summary.ActorMissing", {
-          actor: record.actorName || actorUuid
-        }));
+        summary.skipped += 1;
         addHistory(registry, {
           setId: set.id,
           setName: set.name ?? "",
           grantId: grant.grantId,
           actorUuid,
           operation: "revoke-set",
-          result: "failed",
+          result: "success",
           message: "missing-actor"
         });
         continue;

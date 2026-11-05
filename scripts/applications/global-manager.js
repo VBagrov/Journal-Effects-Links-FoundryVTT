@@ -269,7 +269,7 @@ export class GlobalManagerApp extends HandlebarsApplicationMixin(ApplicationV2) 
             statusLabel: recipientStatusLabel(state.status),
             granted: state.granted,
             total: state.total,
-            problemCount: state.problems,
+            problemCount: state.problems + state.missing,
             canRevoke: Boolean(actor)
           };
         });
@@ -468,7 +468,7 @@ export class GlobalManagerApp extends HandlebarsApplicationMixin(ApplicationV2) 
     this.busy = true;
     try {
       const result = await revocationManager.revokeSet(set);
-      if (result.noGrant) notifyWarn(game.i18n.localize("JELI.Revoke.NoActiveGrant"));
+      if (result.noGrant) notifyInfo(game.i18n.localize("JELI.Revoke.NoActiveGrant"));
       else notifySummary(result.summary, { revoked: true });
       emitSetChanged(set.id);
       this.render({ force: true });
@@ -496,7 +496,7 @@ export class GlobalManagerApp extends HandlebarsApplicationMixin(ApplicationV2) 
     this.busy = true;
     try {
       const result = await revocationManager.revokeRecipient(set, actorUuid);
-      if (result.noRecipient) notifyWarn(game.i18n.localize("JELI.Revoke.NoRecipient"));
+      if (result.noRecipient) notifyInfo(game.i18n.localize("JELI.Revoke.NoRecipient"));
       else notifySummary(result.summary, { revoked: true });
       emitSetChanged(set.id);
       this.render({ force: true });
