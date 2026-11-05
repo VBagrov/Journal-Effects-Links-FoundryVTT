@@ -1,0 +1,156 @@
+{{#if missing}}
+<div class="jeli-empty">
+  <i class="fa-solid fa-circle-question"></i>
+  <p>{{localize 'JELI.Error.SetNotFoundGeneric'}}</p>
+</div>
+{{else}}
+<div class="jeli-editor" data-jeli-drop>
+  <header class="jeli-editor-header">
+    <div class="jeli-set-icon">
+      <img src="{{set.img}}" alt="">
+      <button type="button" class="jeli-icon-button" data-action="pickIcon" title="{{localize 'JELI.Editor.PickIcon'}}">
+        <i class="fa-solid fa-image"></i>
+      </button>
+    </div>
+    <div class="jeli-set-identity">
+      <label class="jeli-field">
+        <span>{{localize 'JELI.Editor.Name'}}</span>
+        <input type="text" data-jeli-field="name" value="{{set.name}}" required autocomplete="off">
+      </label>
+      <label class="jeli-field">
+        <span>{{localize 'JELI.Editor.Description'}}</span>
+        <textarea data-jeli-field="description" rows="2">{{set.description}}</textarea>
+      </label>
+      <input type="hidden" data-jeli-field="img" value="{{set.img}}">
+    </div>
+    <div class="jeli-editor-info">
+      <span class="notes">{{localize 'JELI.Editor.SetId'}}: <code>{{set.id}}</code></span>
+      {{#if isEdit}}<span class="notes">{{localize 'JELI.Editor.Updated'}}: {{updatedLabel}}</span>{{/if}}
+      {{#if hasActiveGrant}}
+      <span class="jeli-banner warning inline">
+        <i class="fa-solid fa-triangle-exclamation"></i> {{localize 'JELI.Editor.ActiveGrantWarning'}}
+      </span>
+      {{/if}}
+    </div>
+  </header>
+
+  <div class="jeli-editor-body">
+    <section class="jeli-editor-panel jeli-editor-objects">
+      <header class="jeli-panel-header">
+        <h3><i class="fa-solid fa-cubes"></i> {{localize 'JELI.Editor.Objects'}} <span class="jeli-badge">{{objects.length}}</span></h3>
+        <button type="button" class="jeli-button small" data-action="openBrowser">
+          <i class="fa-solid fa-book-open"></i> {{localize 'JELI.Editor.FromWorld'}}
+        </button>
+      </header>
+
+      <div class="jeli-dropzone">
+        <i class="fa-solid fa-hand-pointer"></i>
+        <p>{{localize 'JELI.Editor.DropHint'}}</p>
+        <p class="notes">{{localize 'JELI.Editor.DropReplaceHint'}}</p>
+      </div>
+
+      {{#if objects.length}}
+      <ul class="jeli-object-list">
+        {{#each objects}}
+        <li class="jeli-object-row" data-object-id="{{id}}">
+          <img src="{{img}}" alt="">
+          <div class="jeli-object-text">
+            <strong>{{name}}</strong>
+            <span class="notes">{{typeLabel}} · {{sourceLabel}}</span>
+          </div>
+          <div class="jeli-row-actions">
+            <button type="button" class="jeli-icon-button" data-action="moveObject" data-direction="-1" title="{{localize 'JELI.Editor.MoveUp'}}" {{#if first}}disabled{{/if}}><i class="fa-solid fa-arrow-up"></i></button>
+            <button type="button" class="jeli-icon-button" data-action="moveObject" data-direction="1" title="{{localize 'JELI.Editor.MoveDown'}}" {{#if last}}disabled{{/if}}><i class="fa-solid fa-arrow-down"></i></button>
+            <button type="button" class="jeli-icon-button danger" data-action="removeObject" title="{{localize 'JELI.Editor.RemoveObject'}}"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </li>
+        {{/each}}
+      </ul>
+      {{else}}
+      <div class="jeli-empty small">
+        <p>{{localize 'JELI.Editor.NoObjects'}}</p>
+      </div>
+      {{/if}}
+    </section>
+
+    <section class="jeli-editor-panel jeli-editor-recipients">
+      <header class="jeli-panel-header">
+        <h3><i class="fa-solid fa-users"></i> {{localize 'JELI.Editor.Recipients'}} <span class="jeli-badge">{{selectedCount}}</span></h3>
+        <div class="jeli-row-actions">
+          <button type="button" class="jeli-button small" data-action="selectPlayers">{{localize 'JELI.Editor.SelectPlayers'}}</button>
+          <button type="button" class="jeli-button small" data-action="clearRecipients">{{localize 'JELI.Editor.ClearRecipients'}}</button>
+        </div>
+      </header>
+
+      <div class="jeli-recipient-tools">
+        <div class="jeli-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="search" data-jeli-actor-search placeholder="{{localize 'JELI.Editor.SearchActors'}}" autocomplete="off">
+        </div>
+        <label class="jeli-checkbox">
+          <input type="checkbox" data-jeli-show-npcs {{checked showNpcs}}>
+          <span>{{localize 'JELI.Editor.ShowNpcs'}}</span>
+        </label>
+      </div>
+
+      <div class="jeli-actor-list">
+        {{#each actorOptions}}
+        <label class="jeli-actor-row" data-search="{{search}}" data-npc="{{npc}}" data-default="{{default}}">
+          <input type="checkbox" data-jeli-recipient value="{{uuid}}" {{checked selected}}>
+          <img src="{{img}}" alt="">
+          <span class="jeli-actor-name">
+            {{name}}
+            {{#if missing}}<em class="jeli-missing">({{localize 'JELI.Editor.MissingActor'}})</em>{{/if}}
+          </span>
+          <span class="jeli-actor-type">{{#if npc}}NPC{{else}}{{typeLabel}}{{/if}}</span>
+          {{#if hasGrant}}<span class="jeli-actor-grant jeli-status jeli-status-{{grantStatus}}">{{grantStatusLabel}}</span>{{/if}}
+          <span class="jeli-actor-owners notes">{{ownerLabel}}</span>
+        </label>
+        {{/each}}
+      </div>
+    </section>
+  </div>
+
+  {{#if browsing}}
+  <div class="jeli-browser-overlay">
+    <header class="jeli-panel-header">
+      <h3><i class="fa-solid fa-book-open"></i> {{localize 'JELI.Editor.WorldItems'}}</h3>
+      <button type="button" class="jeli-icon-button" data-action="closeBrowser" title="{{localize 'JELI.Common.Close'}}"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="jeli-recipient-tools">
+      <div class="jeli-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="search" data-jeli-browse-search placeholder="{{localize 'JELI.Editor.SearchItems'}}" autocomplete="off">
+      </div>
+    </div>
+    <div class="jeli-browse-list">
+      {{#each browseItems}}
+      <div class="jeli-browse-row" data-search="{{search}}">
+        <img src="{{img}}" alt="">
+        <span class="jeli-browse-name">{{name}}</span>
+        <span class="jeli-actor-type">{{typeLabel}}</span>
+        <button type="button" class="jeli-button small" data-action="browseAdd" data-uuid="{{uuid}}">{{localize 'JELI.Editor.Add'}}</button>
+      </div>
+      {{else}}
+      <div class="jeli-empty small">
+        <p>{{localize 'JELI.Editor.NoWorldItems'}}</p>
+      </div>
+      {{/each}}
+    </div>
+  </div>
+  {{/if}}
+
+  <footer class="jeli-editor-footer">
+    <span class="notes">
+      {{localize 'JELI.Editor.FooterSummary' objects=objects.length recipients=selectedCount}}
+    </span>
+    <div class="jeli-row-actions">
+      <button type="button" class="jeli-button" data-action="copyLink" {{#unless isEdit}}disabled{{/unless}}>
+        <i class="fa-solid fa-link"></i> {{localize 'JELI.Action.CopyLink'}}
+      </button>
+      <button type="button" class="jeli-button" data-action="cancel">{{localize 'JELI.Common.Cancel'}}</button>
+      <button type="button" class="jeli-button jeli-primary" data-action="save">{{localize primaryLabelKey}}</button>
+    </div>
+  </footer>
+</div>
+{{/if}}

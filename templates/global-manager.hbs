@@ -1,0 +1,217 @@
+<div class="jeli-manager">
+  <header class="jeli-manager-toolbar">
+    <div class="jeli-search">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="search" data-jeli-search value="{{search}}" placeholder="{{localize 'JELI.Manager.Search'}}" autocomplete="off">
+    </div>
+    <select data-jeli-status-filter class="jeli-select" title="{{localize 'JELI.Manager.FilterStatus'}}">
+      {{#each statusFilters}}
+      <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+      {{/each}}
+    </select>
+    <select data-jeli-sort class="jeli-select" title="{{localize 'JELI.Manager.Sort'}}">
+      {{#each sortOptions}}
+      <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+      {{/each}}
+    </select>
+    <button type="button" class="jeli-button" data-action="refresh" title="{{localize 'JELI.Manager.Refresh'}}">
+      <i class="fa-solid fa-arrows-rotate"></i>
+    </button>
+    <button type="button" class="jeli-button jeli-primary" data-action="createSet">
+      <i class="fa-solid fa-plus"></i> {{localize 'JELI.Manager.NewSet'}}
+    </button>
+  </header>
+
+  <nav class="jeli-tabs">
+    {{#each tabs}}
+    <button type="button" class="jeli-tab {{#if active}}active{{/if}}" data-action="switchTab" data-tab="{{id}}">
+      {{label}} <span class="jeli-badge">{{count}}</span>
+    </button>
+    {{/each}}
+  </nav>
+
+  <div class="jeli-manager-body">
+    {{#if registryIssue}}
+    <div class="jeli-banner warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span>{{localize 'JELI.Issue.RegistryUnavailableShort'}}</span>
+      <button type="button" class="jeli-button small" data-action="repairRegistry">{{localize 'JELI.Repair.Open'}}</button>
+    </div>
+    {{/if}}
+
+    {{#if isSets}}
+      {{#if sets.length}}
+      <div class="jeli-set-list">
+        {{#each sets}}
+        <article class="jeli-set-card" data-status="{{status}}">
+          <img class="jeli-set-img" src="{{img}}" alt="">
+          <div class="jeli-set-main">
+            <header class="jeli-set-heading">
+              <h3>{{name}}</h3>
+              <span class="jeli-status jeli-status-{{status}}">{{statusLabel}}</span>
+            </header>
+            {{#if description}}<p class="jeli-set-desc">{{description}}</p>{{/if}}
+            <div class="jeli-meta">
+              <span title="{{localize 'JELI.Manager.Objects'}}"><i class="fa-solid fa-cubes"></i> {{objectCount}}</span>
+              <span title="{{localize 'JELI.Manager.Recipients'}}"><i class="fa-solid fa-users"></i> {{recipientCount}}</span>
+              <span title="{{localize 'JELI.Manager.ActiveRecipients'}}"><i class="fa-solid fa-user-check"></i> {{activeRecipientCount}}</span>
+              <span title="{{localize 'JELI.Manager.GrantedObjects'}}"><i class="fa-solid fa-link"></i> {{grantedCount}}</span>
+              <span title="{{localize 'JELI.Manager.Updated'}}"><i class="fa-regular fa-clock"></i> {{updatedLabel}}</span>
+              <span title="{{localize 'JELI.Manager.Activated'}}"><i class="fa-solid fa-bolt"></i> {{activatedLabel}}</span>
+            </div>
+          </div>
+          <div class="jeli-set-actions">
+            <button type="button" class="jeli-icon-button" data-action="openSet" data-set-id="{{id}}" title="{{localize 'JELI.Action.Open'}}"><i class="fa-solid fa-folder-open"></i></button>
+            <button type="button" class="jeli-icon-button" data-action="editSet" data-set-id="{{id}}" title="{{localize 'JELI.Action.Edit'}}"><i class="fa-solid fa-pen"></i></button>
+            <button type="button" class="jeli-icon-button" data-action="activateSet" data-set-id="{{id}}" title="{{localize 'JELI.Action.Activate'}}" {{#unless canActivate}}disabled{{/unless}}><i class="fa-solid fa-bolt"></i></button>
+            <button type="button" class="jeli-icon-button" data-action="syncSet" data-set-id="{{id}}" title="{{localize 'JELI.Action.Synchronize'}}"><i class="fa-solid fa-arrows-rotate"></i></button>
+            <button type="button" class="jeli-icon-button danger" data-action="revokeSet" data-set-id="{{id}}" title="{{localize 'JELI.Action.Revoke'}}" {{#unless hasActiveGrant}}disabled{{/unless}}><i class="fa-solid fa-rotate-left"></i></button>
+            <button type="button" class="jeli-icon-button" data-action="copyLink" data-set-id="{{id}}" title="{{localize 'JELI.Action.CopyLink'}}"><i class="fa-solid fa-link"></i></button>
+            <button type="button" class="jeli-icon-button" data-action="findJournal" data-set-id="{{id}}" title="{{localize 'JELI.Action.FindJournal'}}"><i class="fa-solid fa-book"></i></button>
+            <button type="button" class="jeli-icon-button" data-action="duplicateSet" data-set-id="{{id}}" title="{{localize 'JELI.Action.Duplicate'}}"><i class="fa-solid fa-copy"></i></button>
+            <button type="button" class="jeli-icon-button danger" data-action="deleteSet" data-set-id="{{id}}" title="{{localize 'JELI.Action.Delete'}}"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </article>
+        {{/each}}
+      </div>
+      {{else}}
+      <div class="jeli-empty">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <p>{{localize 'JELI.Manager.EmptySets'}}</p>
+        <button type="button" class="jeli-button jeli-primary" data-action="createSet">{{localize 'JELI.Manager.NewSet'}}</button>
+      </div>
+      {{/if}}
+    {{/if}}
+
+    {{#if isGrants}}
+      {{#if activeGrants.length}}
+        <div class="jeli-grant-toolbar">
+          <button type="button" class="jeli-button danger" data-action="revokeAll">
+            <i class="fa-solid fa-ban"></i> {{localize 'JELI.Revoke.All'}}
+          </button>
+        </div>
+        {{#each activeGrants}}
+        <section class="jeli-grant-card">
+          <header class="jeli-grant-header">
+            <div>
+              <h3>{{setName}}</h3>
+              <p class="notes">
+                <span class="jeli-status jeli-status-{{status}}">{{statusLabel}}</span>
+                <code>{{grantId}}</code> · {{activatedLabel}}
+                {{#if orphaned}}<span class="jeli-status jeli-status-error">{{localize 'JELI.Manager.Orphaned'}}</span>{{/if}}
+              </p>
+            </div>
+            <div class="jeli-row-actions">
+              {{#unless orphaned}}
+              <button type="button" class="jeli-button small" data-action="openSet" data-set-id="{{setId}}">{{localize 'JELI.Action.Open'}}</button>
+              {{/unless}}
+              {{#if orphaned}}
+              <button type="button" class="jeli-button small danger" data-action="revokeOrphan" data-set-id="{{setId}}">{{localize 'JELI.Action.Revoke'}}</button>
+              {{/if}}
+            </div>
+          </header>
+          {{#if recipients.length}}
+          <table class="jeli-table">
+            <thead>
+              <tr>
+                <th>{{localize 'JELI.Management.Recipient'}}</th>
+                <th>{{localize 'JELI.Management.Status'}}</th>
+                <th>{{localize 'JELI.Management.Granted'}}</th>
+                <th>{{localize 'JELI.Management.Problems'}}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {{#each recipients}}
+              <tr data-actor-uuid="{{uuid}}">
+                <td class="jeli-cell-actor"><img src="{{img}}" alt=""> {{name}}</td>
+                <td><span class="jeli-status jeli-status-{{status}}">{{statusLabel}}</span></td>
+                <td>{{granted}} / {{total}}</td>
+                <td>{{#if problemCount}}<span class="jeli-result jeli-result-partial">{{problemCount}}</span>{{else}}—{{/if}}</td>
+                <td class="jeli-cell-actions">
+                  <button type="button" class="jeli-button small danger" data-action="revokeRecipient" data-set-id="{{setId}}" data-actor-uuid="{{uuid}}" {{#unless canRevoke}}disabled{{/unless}}>
+                    {{localize 'JELI.Action.Revoke'}}
+                  </button>
+                  <button type="button" class="jeli-icon-button danger" data-action="revokeActor" data-actor-uuid="{{uuid}}" {{#unless canRevoke}}disabled{{/unless}} title="{{localize 'JELI.Action.RevokeActorAll'}}">
+                    <i class="fa-solid fa-user-slash"></i>
+                  </button>
+                </td>
+              </tr>
+              {{/each}}
+            </tbody>
+          </table>
+          {{else}}
+          <p class="notes">{{localize 'JELI.Manager.NoRecipients'}}</p>
+          {{/if}}
+        </section>
+        {{/each}}
+      {{else}}
+      <div class="jeli-empty">
+        <i class="fa-solid fa-link-slash"></i>
+        <p>{{localize 'JELI.Manager.EmptyGrants'}}</p>
+      </div>
+      {{/if}}
+    {{/if}}
+
+    {{#if isIssues}}
+      {{#if issues.length}}
+      <div class="jeli-issue-list">
+        {{#each issues}}
+        <article class="jeli-issue jeli-issue-{{kind}}">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div class="jeli-issue-text">
+            <strong>{{setName}}</strong>
+            <p>{{message}}</p>
+          </div>
+          {{#if canRevokeOrphan}}
+          <button type="button" class="jeli-button small danger" data-action="revokeOrphan" data-set-id="{{setId}}">{{localize 'JELI.Action.Revoke'}}</button>
+          {{/if}}
+          {{#if canRepair}}
+          <button type="button" class="jeli-button small" data-action="repairRegistry">{{localize 'JELI.Repair.Open'}}</button>
+          {{/if}}
+        </article>
+        {{/each}}
+      </div>
+      {{else}}
+      <div class="jeli-empty">
+        <i class="fa-solid fa-circle-check"></i>
+        <p>{{localize 'JELI.Manager.EmptyIssues'}}</p>
+      </div>
+      {{/if}}
+    {{/if}}
+
+    {{#if isHistory}}
+      {{#if history.length}}
+      <table class="jeli-table jeli-history-table">
+        <thead>
+          <tr>
+            <th>{{localize 'JELI.History.Time'}}</th>
+            <th>{{localize 'JELI.History.Set'}}</th>
+            <th>{{localize 'JELI.History.Operation'}}</th>
+            <th>{{localize 'JELI.History.Result'}}</th>
+            <th>{{localize 'JELI.History.Details'}}</th>
+            <th>{{localize 'JELI.History.User'}}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each history}}
+          <tr>
+            <td class="jeli-nowrap">{{timeLabel}}</td>
+            <td>{{setName}}</td>
+            <td>{{operationLabel}}</td>
+            <td><span class="jeli-result jeli-result-{{result}}">{{resultLabel}}</span></td>
+            <td>{{summaryLine}}</td>
+            <td>{{userName}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+      {{else}}
+      <div class="jeli-empty">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <p>{{localize 'JELI.Manager.EmptyHistory'}}</p>
+      </div>
+      {{/if}}
+    {{/if}}
+  </div>
+</div>

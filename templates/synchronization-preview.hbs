@@ -1,0 +1,124 @@
+<div class="jeli-preview">
+  <header class="jeli-preview-header">
+    <h2>{{set.name}}</h2>
+    <p class="notes">{{localize 'JELI.Preview.Hint'}}</p>
+  </header>
+
+  {{#if error}}
+  <div class="jeli-banner error">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>{{error}}</span>
+  </div>
+  {{else}}
+  <fieldset class="jeli-sync-modes">
+    <legend>{{localize 'JELI.Preview.Mode'}}</legend>
+    {{#each modes}}
+    <label class="jeli-sync-mode {{#if selected}}selected{{/if}}">
+      <input type="radio" name="jeli-sync-mode" value="{{id}}" {{checked selected}}>
+      <span>
+        <strong>{{label}}</strong>
+        <small>{{hint}}</small>
+      </span>
+    </label>
+    {{/each}}
+  </fieldset>
+
+  <div class="jeli-preview-body">
+    {{#if activate}}
+    <div class="jeli-banner info">
+      <i class="fa-solid fa-bolt"></i>
+      <span>{{localize 'JELI.Preview.FirstActivation'}}</span>
+    </div>
+    {{/if}}
+
+    {{#if addRecipients.length}}
+    <section class="jeli-preview-section">
+      <h3><i class="fa-solid fa-user-plus"></i> {{localize 'JELI.Preview.AddRecipients'}} <span class="jeli-badge">{{addRecipients.length}}</span></h3>
+      <ul>{{#each addRecipients}}<li>{{name}}</li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#if removeRecipients.length}}
+    <section class="jeli-preview-section danger">
+      <h3><i class="fa-solid fa-user-minus"></i> {{localize 'JELI.Preview.RemoveRecipients'}} <span class="jeli-badge">{{removeRecipients.length}}</span></h3>
+      <ul>{{#each removeRecipients}}<li>{{name}} <span class="notes">({{objectCount}})</span></li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#if addObjects.length}}
+    <section class="jeli-preview-section">
+      <h3><i class="fa-solid fa-plus"></i> {{localize 'JELI.Preview.AddObjects'}} <span class="jeli-badge">{{addObjects.length}}</span></h3>
+      <ul>{{#each addObjects}}<li>{{name}} <span class="notes">{{typeLabel}} × {{recipientCount}}</span></li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#if updateObjects.length}}
+    <section class="jeli-preview-section">
+      <h3><i class="fa-solid fa-pen"></i> {{localize 'JELI.Preview.UpdateObjects'}} <span class="jeli-badge">{{updateObjects.length}}</span></h3>
+      <ul>{{#each updateObjects}}<li>{{name}} <span class="notes">{{typeLabel}} × {{recipientCount}}</span></li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#if removeObjects.length}}
+    <section class="jeli-preview-section danger">
+      <h3><i class="fa-solid fa-minus"></i> {{localize 'JELI.Preview.RemoveObjects'}} <span class="jeli-badge">{{removeObjects.length}}</span></h3>
+      <ul>{{#each removeObjects}}<li>{{name}} <span class="notes">{{typeLabel}} × {{recipientCount}}</span></li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#if skippedExisting.length}}
+    <section class="jeli-preview-section">
+      <h3><i class="fa-solid fa-clone"></i> {{localize 'JELI.Preview.SkippedExisting'}} <span class="jeli-badge">{{skippedExisting.length}}</span></h3>
+      <p class="notes">{{#if duplicatesDisabled}}{{localize 'JELI.Preview.SkippedExistingHint'}}{{else}}{{localize 'JELI.Preview.DuplicatesEnabledHint'}}{{/if}}</p>
+      <ul>{{#each skippedExisting}}<li>{{actorName}} — {{objectName}}</li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#if missingInstances.length}}
+    <section class="jeli-preview-section warning">
+      <h3><i class="fa-solid fa-ghost"></i> {{localize 'JELI.Preview.MissingInstances'}} <span class="jeli-badge">{{missingInstances.length}}</span></h3>
+      <ul>{{#each missingInstances}}<li>{{actorName}} — {{objectName}} <span class="notes">{{reasonLabel}}</span></li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#if conflicts.length}}
+    <section class="jeli-preview-section danger">
+      <h3><i class="fa-solid fa-triangle-exclamation"></i> {{localize 'JELI.Preview.Conflicts'}} <span class="jeli-badge">{{conflicts.length}}</span></h3>
+      <ul>{{#each conflicts}}<li>{{actorName}} — {{objectName}} <span class="notes">{{reasonLabel}}</span></li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#if missingActors.length}}
+    <section class="jeli-preview-section warning">
+      <h3><i class="fa-solid fa-user-slash"></i> {{localize 'JELI.Preview.MissingActors'}} <span class="jeli-badge">{{missingActors.length}}</span></h3>
+      <ul>{{#each missingActors}}<li>{{name}} <span class="notes"><code>{{uuid}}</code></span></li>{{/each}}</ul>
+    </section>
+    {{/if}}
+
+    {{#unless hasWork}}
+    <div class="jeli-banner">
+      <i class="fa-solid fa-circle-check"></i>
+      <span>{{localize 'JELI.Preview.NoChanges'}}</span>
+    </div>
+    {{/unless}}
+  </div>
+
+  <div class="jeli-preview-totals">
+    <span><strong>{{localize 'JELI.Preview.Create'}}</strong> {{totals.create}}</span>
+    <span><strong>{{localize 'JELI.Preview.Remove'}}</strong> {{totals.remove}}</span>
+    <span><strong>{{localize 'JELI.Preview.Update'}}</strong> {{totals.update}}</span>
+    <span><strong>{{localize 'JELI.Preview.Keep'}}</strong> {{totals.keep}}</span>
+    <span><strong>{{localize 'JELI.Preview.Skip'}}</strong> {{totals.skip}}</span>
+  </div>
+  {{/if}}
+
+  <footer class="jeli-editor-footer">
+    <span class="notes">{{localize 'JELI.Preview.FooterHint'}}</span>
+    <div class="jeli-row-actions">
+      <button type="button" class="jeli-button" data-action="cancel">{{localize 'JELI.Common.Cancel'}}</button>
+      {{#unless error}}
+      <button type="button" class="jeli-button jeli-primary" data-action="confirm">{{localize confirmLabelKey}}</button>
+      {{/unless}}
+    </div>
+  </footer>
+</div>
